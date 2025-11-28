@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - WKW Quality</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Login Screen -->
+    <div
+      id="loginScreen"
+      class="container"
+      style="max-width: 420px; margin: 100px auto"
+    >
+      <div
+        style="
+          background: white;
+          padding: 50px;
+          border-radius: 20px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+          text-align: center;
+        "
+      >
+        <h2 style="color: #1a4971; font-size: 28px; margin-bottom: 30px">
+          Connexion Admin
+        </h2>
+        <input
+          type="email"
+          id="email"
+          placeholder="Email"
+          value="admin@wkw-group.com"
+          style="
+            width: 100%;
+            padding: 16px;
+            margin: 12px 0;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            font-size: 16px;
+          "
+        /><br />
+        <input
+          type="password"
+          id="password"
+          placeholder="Mot de passe"
+          style="
+            width: 100%;
+            padding: 16px;
+            margin: 12px 0;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            font-size: 16px;
+          "
+        /><br />
+        <button
+          onclick="login()"
+          style="
+            width: 100%;
+            padding: 18px;
+            background: #1a4971;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 20px;
+            cursor: pointer;
+            margin-top: 20px;
+          "
+        >
+          Se connecter
+        </button>
+        <p
+          id="error"
+          style="
+            color: #e74c3c;
+            margin-top: 20px;
+            display: none;
+            font-weight: bold;
+          "
+        >
+          Identifiants incorrects
+        </p>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="container" style="display: none">
+      <div style="text-align: center; margin-bottom: 30px">
+        <h1 style="color: #1a4971; font-size: 34px">
+          Toutes les Réponses Qualité
+        </h1>
+        <p style="color: #666; font-size: 18px">
+          Total: <span id="totalCount">0</span> réponses
+        </p>
+      </div>
+
+      <div style="text-align: center; margin: 30px 0">
+        <button class="export-btn" onclick="exportToExcel()">
+          Exporter en Excel
+        </button>
+        <button class="logout-btn" onclick="logout()">Déconnexion</button>
+      </div>
+
+      <div id="tableContainer"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      const SUPABASE_URL = "https://xodkwwxfpbgatkezbsiq.supabase.co";
+      const SUPABASE_ANON_KEY =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhvZGt3d3hmcGJnYXRrZXpic2lxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMDYzMzgsImV4cCI6MjA3OTg4MjMzOH0.AdujtGpcHwcV-COPQbrkf-1g7eG6NrwAtOciaCPTJj0";
+      const supabase = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      );
+
+      async function login() {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value,
+        });
+        if (error) {
+          document.getElementById("error").style.display = "block";
+        } else {
+          document.getElementById("loginScreen").style.display = "none";
+          document.getElementById("dashboard").style.display = "block";
+          loadResponses();
+        }
+      }
+
+      async function loadResponses() {
+        const { data } = await supabase
+          .from("survey_responses")
+          .select("*")
+          .order("created_at", { ascending: false });
+        document.getElementById("totalCount").textContent = data.length;
+
+        let html = `<table>
+        <tr>
+          <th>Date Visite</th><th>Q1 Accueil</th><th>Q2 Attentes</th><th>Q3 Maîtrise QS</th><th>Q4 KPIs</th>
+          <th>Q5 Lean/5S</th><th>Q6 Lignes</th><th>Q7 Discipline</th><th>Points forts</th><th>Améliorations</th>
+          <th>Priorités</th><th>Commentaires</th>
+        </tr>`;
+        data.forEach((r) => {
+          const prio = [r.priority1, r.priority2, r.priority3]
+            .filter((x) => x)
+            .join(" → ");
+          html += `<tr>
+          <td><strong>${new Date(r.visit_date).toLocaleDateString(
+            "fr-FR"
+          )}</strong></td>
+          <td>${r.q1 || "-"}</td><td>${r.q2 || "-"}</td><td>${
+            r.q3 || "-"
+          }</td><td>${r.q4 || "-"}</td>
+          <td>${r.q5 || "-"}</td><td>${r.q6 || "-"}</td><td>${r.q7 || "-"}</td>
+          <td>${(r.strengths || "").substring(0, 60)}...</td>
+          <td>${(r.improvements || "").substring(0, 60)}...</td>
+          <td>${prio || "-"}</td>
+          <td>${r.comments || "-"}</td>
+        </tr>`;
+        });
+        html += `</table>`;
+        document.getElementById("tableContainer").innerHTML = html;
+      }
+
+      function exportToExcel() {
+        let csv =
+          "\uFEFFDate Visite,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Points forts,Améliorations,Priorité 1,Priorité 2,Priorité 3,Commentaires\n";
+        document
+          .querySelectorAll("#tableContainer tr:not(:first-child)")
+          .forEach((row) => {
+            const cols = row.querySelectorAll("td");
+            csv +=
+              Array.from(cols)
+                .map((td) => `"${td.innerText.replace(/"/g, '""')}"`)
+                .join(",") + "\n";
+          });
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `WKW_Quality_Responses_${new Date()
+          .toISOString()
+          .slice(0, 10)}.csv`;
+        link.click();
+      }
+
+      function logout() {
+        supabase.auth.signOut().then(() => {
+          document.getElementById("dashboard").style.display = "none";
+          document.getElementById("loginScreen").style.display = "block";
+          document.getElementById("error").style.display = "none";
+        });
+      }
+    </script>
+  </body>
+</html>
